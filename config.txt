@@ -1,0 +1,13 @@
+#Note that values cannot have any trailing spaces
+database = snoop.db
+smtp-server = smtp.site.com
+smtp-port = 25
+email = email@site.com
+password = pass
+agent-name = snooper
+
+target = target@site.com
+target-name = name
+
+auction-timeout(hours) = 24
+ping-frequency(milliseconds) = 15000
