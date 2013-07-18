@@ -7,16 +7,30 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 public class Database {
+	private Set<String> banWords;
 	private List<Auction> database;
+	
+	private Set<String> banWords() {
+		Set<String> banWords = new HashSet<String>();
+		banWords.add("Women's");
+		banWords.add("Boy's");
+		banWords.add("Girl's");
+		banWords.add("Tent");
+		banWords.add("Pole");
+		return banWords;
+	}
 	
 	/*
 	 * Returns a new database that is initially empty
 	 */
 	public Database() {
+		banWords = banWords();
 		database = new LinkedList<Auction>();
 	}
 	
@@ -25,6 +39,7 @@ public class Database {
 	 * filename, throws an IOException if the file cannot be read
 	 */
 	public Database(String filename) throws IOException {
+		banWords = banWords();
 		DataInputStream in = null;
 		try {
 			in = new DataInputStream(new FileInputStream(filename));
@@ -37,8 +52,8 @@ public class Database {
 										 in.readInt(),
 										 in.readInt(),
 										 in.readInt(),
-										 in.readInt(),
-										 in.readInt()));
+										 in.readLong(),
+										 in.readLong()));
 			}
 		} catch (FileNotFoundException e) {
 			throw new IOException();
@@ -59,7 +74,9 @@ public class Database {
 		if (!start.product.equals(finish.product) ||
 			start.price != finish.price ||
 			start.reduction != finish.reduction ||
-			finish.quantity > start.quantity ||
+			//TODO: investigate the fact that this failed.
+			//can a quantity actually go up?
+			//finish.quantity > start.quantity ||
 			start.timestamp > finish.timestamp) {
 			
 			//TODO: remove this
@@ -90,7 +107,13 @@ public class Database {
 	 * for the product in this AuctionState or -1 if it is not
 	 * in the database
 	 */
-	public int getTimeStamp(AuctionState liveAuction) {
+	public long getTimeStamp(AuctionState liveAuction) {
+		for (String s : banWords) {
+			if (liveAuction.product.contains(s)) {
+				return System.currentTimeMillis();
+			}
+		}
+		
 		for (Auction auction : database) {
 			if (auction.product.equals(liveAuction.product) &&
 				auction.price == liveAuction.price) {
@@ -106,31 +129,40 @@ public class Database {
 	public void writeToFile(String filename) throws IOException{
 		writeToFile(filename, Integer.MAX_VALUE);
 	}
-	
-	//TODO: max should be changed to a timestamp or a window of time
+	/*
+	 * writes the database to the given file name, capping the database to
+	 * items that were at most 'max' hours in the past.
+	 */
 	public void writeToFile(String filename, int max) throws IOException {
 		DataOutputStream out = null;
+		int current = (int) System.currentTimeMillis();
+		int writeCount = 0;
+		max = max * 60 * 60 * 1000; //convert max to ms;
+		for (Auction auction : database) {
+			if (current - auction.timestampStart > max) {
+				break;
+			}
+			writeCount++;
+		}
+		
 		try {
 			out = new DataOutputStream(new FileOutputStream(filename));
-			if (max > database.size()) {
-				out.writeInt(database.size());
-			} else {
-				out.writeInt(max);
-			}
-			int count = 0;
+			out.writeInt(writeCount);
+			
+			int written = 0;
 			for (Auction auction : database) {
-				if (count < max) {
+				if (written < writeCount) {
 					out.writeUTF(auction.product);
 					out.writeInt(auction.price);
 					out.writeInt(auction.reduction);
 					out.writeInt(auction.quantityStart);
 					out.writeInt(auction.quantityFinish);
-					out.writeInt(auction.timestampStart);
-					out.writeInt(auction.timestampFinish);
+					out.writeLong(auction.timestampStart);
+					out.writeLong(auction.timestampFinish);
 				} else {
 					break;
 				}
-				count++;
+				written++;
 			}
 		} catch (FileNotFoundException e) {
 			throw new IOException();

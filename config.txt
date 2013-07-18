@@ -11,3 +11,4 @@ target-name = name
 
 auction-timeout(hours) = 24
 ping-frequency(milliseconds) = 15000
+

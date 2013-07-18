@@ -95,6 +95,7 @@ public class Snooper {
 				} else {
 					//new item is live
 					attempt = -1;
+					//TODO: maybe catch the IllegalArgumentException here?
 					database.add(knownAuctionInitial, knownAuctionFinal);
 					knownAuctionInitial = liveAuction;
 					knownAuctionFinal = liveAuction;
@@ -141,10 +142,7 @@ public class Snooper {
 	 * prints to the console and emails the target.
 	 */
 	public static void alertOnNewAuction(AuctionState auction) {
-		int lastSeen = database.getTimeStamp(auction);
-		if (auction == null) {
-			System.out.println("Hello!");
-		}
+		long lastSeen = database.getTimeStamp(auction);
 		int hours = Integer.parseInt(config.getProperty(COUNT_AS_NEW_KEY));
 		if (lastSeen == -1 ||
 			System.currentTimeMillis() - lastSeen > (hours * 1000 * 60 * 60)) {

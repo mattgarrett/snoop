@@ -6,8 +6,8 @@ public class Auction {
 	public int reduction;
 	public int quantityStart;
 	public int quantityFinish;
-	public int timestampStart;
-	public int timestampFinish;
+	public long timestampStart;
+	public long timestampFinish;
 
 	/*
 	 * Returns a new auction representing the given product
@@ -17,8 +17,8 @@ public class Auction {
 				   int reduction,
 				   int quantityStart,
 				   int quantityFinish,
-				   int timestampStart,
-				   int timestampFinish) {
+				   long timestampStart,
+				   long timestampFinish) {
 		
 		this.product = product;
 		this.price = price;

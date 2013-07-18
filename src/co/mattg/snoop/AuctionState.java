@@ -5,7 +5,7 @@ public class AuctionState implements Comparable<AuctionState>{
 	public int price;
 	public int reduction;
 	public int quantity;
-	public int timestamp;
+	public long timestamp;
 	public String image;
 	
 	/*
@@ -17,7 +17,7 @@ public class AuctionState implements Comparable<AuctionState>{
 		this.price = Integer.parseInt(price.substring(1, price.length() - 3));
 		this.reduction = Integer.parseInt(reduction.substring(0, reduction.length() - 5));
 		this.quantity = Integer.parseInt(quantity);
-		this.timestamp = (int) System.currentTimeMillis(); //will blow up eventually
+		this.timestamp = System.currentTimeMillis();
 		this.image = image;
 	}
 	
@@ -27,8 +27,10 @@ public class AuctionState implements Comparable<AuctionState>{
 	public int compareTo(AuctionState other) {
 		if (this.product.equals(other.product) && this.price == other.price) {
 			return 0;
+		} else if (this.timestamp > other.timestamp) {
+			return 1;
 		} else {
-			return this.timestamp - other.timestamp;
+			return -1;
 		}
 	}
 
