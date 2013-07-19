@@ -36,6 +36,12 @@ public class SnooperMain {
 				agent.start();
 				console.next();
 				agent.interrupt();
+				try {
+					agent.join();
+				} catch (InterruptedException e) {
+					//Main thread should not be interrupted
+				}
+				System.out.println("After interrupt");
 			} else if (choice == 2) {
 				//TODO: Item selection and watchlist
 			} else if (choice == 3) {
