@@ -59,7 +59,6 @@ public class SnooperAgent implements Runnable {
 			try {
 				Thread.sleep(sleep);
 			} catch (InterruptedException e) {
-				System.out.println("InterruptedException");
 				return;
 			}
 		}
