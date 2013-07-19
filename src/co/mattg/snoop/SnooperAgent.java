@@ -6,6 +6,7 @@ import org.codemonkey.simplejavamail.TransportStrategy;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Properties;
 import javax.mail.Message.RecipientType;
@@ -95,9 +96,14 @@ public class SnooperAgent implements Runnable {
 		email.setText(auction.toString() + "!");
 		email.setTextHTML("<b>" + auction.toString() + "!</b><br>" + auction.image);
 	
-		//TODO: see if this nullifies the email output
+		//creates a custom output stream that does nothing so the Mailer can't write
+		//to it.  I have no idea how to make the mailer stop writing to stdout.
 		PrintStream console = System.out;
-		System.setOut(null);
+		System.setOut(new PrintStream(new OutputStream() {
+			public void write(int b) {
+				//do nothing
+			}
+		}));
 		new Mailer(config.getProperty(SnooperMain.SMTP_SERVER_KEY),
 				   Integer.parseInt(config.getProperty(SnooperMain.SMTP_PORT_KEY)),
 				   config.getProperty(SnooperMain.EMAIL_ADDRESS_KEY),
