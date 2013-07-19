@@ -23,6 +23,7 @@ public class Database {
 		banWords.add("Girl's");
 		banWords.add("Tent");
 		banWords.add("Pole");
+		banWords.add("Climbing Shoe");
 		return banWords;
 	}
 	
@@ -129,6 +130,7 @@ public class Database {
 	public void writeToFile(String filename) throws IOException{
 		writeToFile(filename, Integer.MAX_VALUE);
 	}
+	
 	/*
 	 * writes the database to the given file name, capping the database to
 	 * items that were at most 'max' hours in the past.
