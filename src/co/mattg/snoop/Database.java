@@ -15,6 +15,7 @@ import java.util.Set;
 public class Database {
 	private Set<String> banWords;
 	private List<Auction> database;
+	private Set<Auction> auctionWatch; //TODO: determine if this should really be a set
 	
 	private Set<String> banWords() {
 		Set<String> banWords = new HashSet<String>();
@@ -33,6 +34,7 @@ public class Database {
 	public Database() {
 		banWords = banWords();
 		database = new LinkedList<Auction>();
+		auctionWatch = new HashSet<Auction>();
 	}
 	
 	/*
@@ -41,11 +43,13 @@ public class Database {
 	 */
 	public Database(String filename) throws IOException {
 		banWords = banWords();
+		database = new LinkedList<Auction>();
+		auctionWatch = new HashSet<Auction>();
+		
 		DataInputStream in = null;
 		try {
 			in = new DataInputStream(new FileInputStream(filename));
 			int auctions = in.readInt();
-			database = new LinkedList<Auction>();
 			
 			for (int i = 0; i < auctions; i++) {
 				database.add(new Auction(in.readUTF(),
@@ -75,15 +79,8 @@ public class Database {
 		if (!start.product.equals(finish.product) ||
 			start.price != finish.price ||
 			start.reduction != finish.reduction ||
-			//TODO: investigate the fact that this failed.
-			//can a quantity actually go up?
-			//finish.quantity > start.quantity ||
+			//finish.quantity > start.quantity ||  apparently this can happen
 			start.timestamp > finish.timestamp) {
-			
-			//TODO: remove this
-			System.err.println("Debug Info");
-			System.err.println(start);
-			System.err.println(finish);
 			throw new IllegalArgumentException();
 		}
 		
