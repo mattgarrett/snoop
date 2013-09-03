@@ -3,6 +3,7 @@ package co.mattg.snoop;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.InputMismatchException;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
@@ -24,20 +25,21 @@ public class SnooperMain {
 	
 	public static void main(String[] args) {
 		config = getConfig();
-		Database database = getDatabase();
+		AuctionDatabase database = getDatabase();
 		Runtime.getRuntime().addShutdownHook(new Thread(new ShutdownHook(database)));
 		intro();
 		
 		Scanner console = new Scanner(System.in);
 		int choice = options(console);
+		SnooperAgent agent = new SnooperAgent(config, database);
+		Thread agentThread = new Thread(agent);
+		agentThread.start();
 		while (choice != 4) {
 			if (choice == 1) {
-				Thread agent = new Thread(new SnooperAgent(config, database));
-				agent.start();
 				console.next();
-				agent.interrupt();
+				agentThread.interrupt();
 				try {
-					agent.join();
+					agentThread.join();
 				} catch (InterruptedException e) {
 					//Main thread should not be interrupted
 				}
@@ -52,13 +54,21 @@ public class SnooperMain {
 	}
 	
 	public static int options(Scanner console) {
-		System.out.println();
-		System.out.println("1.) Scan steepandcheap.com");
-		System.out.println("2.) Pick items to watch");
-		System.out.println("3.) Help and information");
-		System.out.println("4.) Exit");
-		System.out.print("Enter your choice: ");
-		return console.nextInt();
+		int choice = 0;
+		while (choice < 1 || choice > 4) {
+			try {
+				System.out.println();
+				System.out.println("1.) Scan steepandcheap.com");
+				System.out.println("2.) Pick items to watch");
+				System.out.println("3.) Help and information");
+				System.out.println("4.) Exit");
+				System.out.print("Enter your choice: ");
+				choice = console.nextInt();
+			} catch (InputMismatchException e) {
+				//don't do anything
+			}
+		}
+		return choice;
 	}
 	
 	public static Properties getConfig() {
@@ -78,10 +88,10 @@ public class SnooperMain {
 		return config;
 	}
 	
-	public static Database getDatabase() {
-		Database database = null;
+	public static AuctionDatabase getDatabase() {
+		AuctionDatabase database = null;
 		try {
-			database = new Database(config.getProperty(DATABASE_KEY));
+			database = new AuctionDatabase(config.getProperty(DATABASE_KEY));
 			System.out.println("...Database Loaded");
 		} catch (IOException e) {
 			System.out.println("Couldn't read from the database.");
@@ -100,7 +110,7 @@ public class SnooperMain {
 			if (answer.startsWith("n") || answer.startsWith("N")) {
 				System.exit(3);
 			}
-			database = new Database();
+			database = new AuctionDatabase();
 			System.out.println("...Database Created");
 		}
 		return database;
@@ -145,9 +155,9 @@ public class SnooperMain {
 	 * killed by the OS.
 	 */
 	public static class ShutdownHook implements Runnable {
-		private Database database;
+		private AuctionDatabase database;
 		
-		public ShutdownHook(Database database) {
+		public ShutdownHook(AuctionDatabase database) {
 			this.database = database;
 		}
 		

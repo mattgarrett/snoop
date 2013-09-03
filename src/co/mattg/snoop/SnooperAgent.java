@@ -3,41 +3,44 @@ package co.mattg.snoop;
 import org.codemonkey.simplejavamail.Email;
 import org.codemonkey.simplejavamail.Mailer;
 import org.codemonkey.simplejavamail.TransportStrategy;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Properties;
 import javax.mail.Message.RecipientType;
-import co.mattg.snoop.AuctionState;
 
+/**
+ * Snooper Agent
+ * 
+ * @author matt
+ */
 public class SnooperAgent implements Runnable {
-	public static final String URL = "http://www.steepandcheap.com/";
-	public static final String PRODUCT = "product_title";
-	public static final String PRICE = "price";
-	public static final String REDUCTION = "percent_off";
-	public static final String QUANTITY = "total_remaining";
-	public static final String IMAGE = "item_image";
-	
-	private AuctionState knownAuctionInitial;
-	private AuctionState knownAuctionFinal;
+
+  private AuctionWatcher auctionWatcher;
+  
+	private AuctionSnapshot knownAuctionInitial;
+	private AuctionSnapshot knownAuctionFinal;
 	private Properties config;
-	private Database database;
+	private AuctionDatabase database;
 	
-	public SnooperAgent(Properties config, Database database) {
+	/**
+	 * Creates a Snooper Agent
+	 * 
+	 * @param config The config for the SnooperAgent
+	 * @param database The Database for the SnooperAgent
+	 */
+	public SnooperAgent(Properties config, AuctionDatabase database) {
 		this.config = config;
 		this.database = database;
+		this.auctionWatcher = new AuctionWatcher();
 	}
-	/*
-	 * pings steep and cheap for auction information, e-mails the target
-	 * when new auctions are found.
+
+	/**
+	 * Runs the SnooperAgent
 	 */
 	public void run() {
 		int sleep = Integer.parseInt(config.getProperty(SnooperMain.PING_FREQUENCY_KEY));
-		int attempt = 0;
-		for(;;) {
-			AuctionState liveAuction = getCurrentAuctionState(attempt);
+		while(true) {
+			AuctionSnapshot liveAuction = auctionWatcher.getAuctionSnapshot();
 			if (liveAuction != null) {
 				if (knownAuctionInitial == null) {
 					knownAuctionInitial = liveAuction;
@@ -48,15 +51,13 @@ public class SnooperAgent implements Runnable {
 					knownAuctionFinal = liveAuction;
 				} else {
 					//new item is live
-					attempt = -1;
 					//TODO: maybe catch the IllegalArgumentException here?
-					database.add(knownAuctionInitial, knownAuctionFinal);
+					database.addIfNewAuctionSnapshot(knownAuctionInitial);
 					knownAuctionInitial = liveAuction;
 					knownAuctionFinal = liveAuction;
 					alertOnNewAuction(liveAuction);
 				}
 			}
-			attempt++;
 			try {
 				Thread.sleep(sleep);
 			} catch (InterruptedException e) {
@@ -69,23 +70,20 @@ public class SnooperAgent implements Runnable {
 	 * Decides whether the given AuctionState is new.  If it is considered new,
 	 * prints to the console and emails the target.
 	 */
-	public void alertOnNewAuction(AuctionState auction) {
+	public void alertOnNewAuction(AuctionSnapshot auction) {
 		long lastSeen = database.getTimeStamp(auction);
 		int hours = Integer.parseInt(config.getProperty(SnooperMain.COUNT_AS_NEW_KEY));
 		if (lastSeen == -1 ||
 			System.currentTimeMillis() - lastSeen > (hours * 1000 * 60 * 60)) {
 
-			System.out.println("\nnew auction: " + auction.toString() + "!");
 			sendEmail(auction);
-		} else {
-			System.err.println("\nold auction: " + auction.toString());
 		}
 	}
 	
 	/*
 	 * Sends an email to the target, alerting them of the current auction
 	 */
-	public void sendEmail(AuctionState auction) {
+	public void sendEmail(AuctionSnapshot auction) {
 		final Email email = new Email();
 		email.setFromAddress(config.getProperty(SnooperMain.AGENT_NAME_KEY),
 							 config.getProperty(SnooperMain.EMAIL_ADDRESS_KEY));
@@ -110,24 +108,5 @@ public class SnooperAgent implements Runnable {
 				   config.getProperty(SnooperMain.EMAIL_PASSWORD_KEY),
 				   TransportStrategy.SMTP_SSL).sendMail(email);
 		System.setOut(console);
-	}
-	
-	/*
-	 * returns an AuctionState representing the current item hosted on
-	 * steep and cheap, or null if the server cannot be contacted
-	 */
-	private AuctionState getCurrentAuctionState(int attempt) {
-		System.out.print("\rscrape attempt: " + attempt + " (type end to stop) ");
-		try {
-			Document doc = Jsoup.connect(URL).get();
-			AuctionState current = new AuctionState(doc.getElementById(PRODUCT).text(),
-													doc.getElementById(PRICE).text(),
-													doc.getElementById(REDUCTION).text(),
-													doc.getElementById(QUANTITY).text(),
-													doc.getElementById(IMAGE).html());
-			return current;
-		} catch (IOException e) {
-			return null;
-		}
 	}
 }

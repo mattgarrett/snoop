@@ -1,6 +1,15 @@
+# Java Files #
 *.class
 
 # Package Files #
 *.jar
 *.war
 *.ear
+
+# Eclispe Files #
+.classpath
+.project
+.settings/
+
+# Snoop Files #
+snoop.db

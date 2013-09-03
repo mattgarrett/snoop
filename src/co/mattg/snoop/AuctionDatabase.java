@@ -9,13 +9,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
-public class Database {
-	private Set<String> banWords;
-	private List<Auction> database;
-	private Set<Auction> auctionWatch; //TODO: determine if this should really be a set
+/**
+ * A database of past AuctionSnapshots
+ * 
+ * @author matt
+ */
+public class AuctionDatabase {
+  private LinkedList<AuctionSnapshot> auctionSnapshots;
+  
+  private Set<String> banWords;
 	
 	private Set<String> banWords() {
 		Set<String> banWords = new HashSet<String>();
@@ -28,36 +32,39 @@ public class Database {
 		return banWords;
 	}
 	
-	/*
-	 * Returns a new database that is initially empty
+	/**
+	 * Creates a new, empty AuctionDatabase
 	 */
-	public Database() {
+	public AuctionDatabase() {
 		banWords = banWords();
-		database = new LinkedList<Auction>();
-		auctionWatch = new HashSet<Auction>();
+		auctionSnapshots = new LinkedList<AuctionSnapshot>();
 	}
 	
 	/*
 	 * Returns a new database that has been read from the given
 	 * filename, throws an IOException if the file cannot be read
 	 */
-	public Database(String filename) throws IOException {
+	
+	/**
+	 * Creates a new database from the file with the given path
+	 * @param filePath the path to the database file
+	 * @throws IOException if the file cannot be read
+	 */
+	public AuctionDatabase(String filePath) throws IOException {
 		banWords = banWords();
-		database = new LinkedList<Auction>();
-		auctionWatch = new HashSet<Auction>();
+		auctionSnapshots = new LinkedList<AuctionSnapshot>();
 		
 		DataInputStream in = null;
 		try {
-			in = new DataInputStream(new FileInputStream(filename));
+			in = new DataInputStream(new FileInputStream(filePath));
 			int auctions = in.readInt();
 			
 			for (int i = 0; i < auctions; i++) {
-				database.add(new Auction(in.readUTF(),
+				auctionSnapshots.add(new AuctionSnapshot(in.readUTF(),
 										 in.readInt(),
 										 in.readInt(),
 										 in.readInt(),
-										 in.readInt(),
-										 in.readLong(),
+										 null,
 										 in.readLong()));
 			}
 		} catch (FileNotFoundException e) {
@@ -70,34 +77,26 @@ public class Database {
 			}
 		}
 	}
-	
-	/*
-	 * Adds a new Auction to the database representing the given
-	 * start and finish AuctionStates
+
+	/**
+	 * Adds the given AuctionShapshot to the AuctionDatabase if
+	 * the given AuctionSnapshot is different from the most recent
+	 * AuctionSnapshot
+	 * @param auctionSnapshot
+	 * @return returns true if the AuctionShapshot was added false otherwise
 	 */
-	public void add(AuctionState start, AuctionState finish) {
-		if (!start.product.equals(finish.product) ||
-			start.price != finish.price ||
-			start.reduction != finish.reduction ||
-			//finish.quantity > start.quantity ||  apparently this can happen
-			start.timestamp > finish.timestamp) {
-			throw new IllegalArgumentException();
-		}
-		
-		add(new Auction(start.product,
-						start.price,
-						start.reduction,
-						start.quantity,
-						finish.quantity,
-						start.timestamp,
-						finish.timestamp));
+	public boolean addIfNewAuctionSnapshot(AuctionSnapshot auctionSnapshot) {
+	  AuctionSnapshot mostRecent = getMostRecentAuctionSnapshot();
+	  if (mostRecent == null || !mostRecent.equals(auctionSnapshot)) {
+	    auctionSnapshots.add(auctionSnapshot);
+	    return true;
+	  } else {
+	    return false;
+	  }
 	}
 	
-	/*
-	 * Adds the given Auction to the database
-	 */
-	public void add(Auction auction) {
-		database.add(0, auction);
+	public AuctionSnapshot getMostRecentAuctionSnapshot() {
+	  return (auctionSnapshots.isEmpty()) ? null : auctionSnapshots.get(auctionSnapshots.size() - 1);
 	}
 	
 	/*
@@ -105,17 +104,17 @@ public class Database {
 	 * for the product in this AuctionState or -1 if it is not
 	 * in the database
 	 */
-	public long getTimeStamp(AuctionState liveAuction) {
+	public long getTimeStamp(AuctionSnapshot auctionSnapshot) {
 		for (String s : banWords) {
-			if (liveAuction.product.contains(s)) {
+			if (auctionSnapshot.product.contains(s)) {
 				return System.currentTimeMillis();
 			}
 		}
 		
-		for (Auction auction : database) {
-			if (auction.product.equals(liveAuction.product) &&
-				auction.price == liveAuction.price) {
-				return auction.timestampFinish;
+		for (AuctionSnapshot databaseAuctionSnapshot : auctionSnapshots) {
+			if (auctionSnapshot.product.equals(databaseAuctionSnapshot.product) &&
+				auctionSnapshot.price == databaseAuctionSnapshot.price) {
+				return databaseAuctionSnapshot.timestamp;
 			}
 		}
 		return -1;
@@ -136,9 +135,10 @@ public class Database {
 		DataOutputStream out = null;
 		int current = (int) System.currentTimeMillis();
 		int writeCount = 0;
+		//TODO(matt): these loops should be rolled into one
 		max = max * 60 * 60 * 1000; //convert max to ms;
-		for (Auction auction : database) {
-			if (current - auction.timestampStart > max) {
+		for (AuctionSnapshot auctionSnapshot : auctionSnapshots) {
+			if (current - auctionSnapshot.timestamp > max) {
 				break;
 			}
 			writeCount++;
@@ -149,15 +149,13 @@ public class Database {
 			out.writeInt(writeCount);
 			
 			int written = 0;
-			for (Auction auction : database) {
+			for (AuctionSnapshot auctionSnapshot : auctionSnapshots) {
 				if (written < writeCount) {
-					out.writeUTF(auction.product);
-					out.writeInt(auction.price);
-					out.writeInt(auction.reduction);
-					out.writeInt(auction.quantityStart);
-					out.writeInt(auction.quantityFinish);
-					out.writeLong(auction.timestampStart);
-					out.writeLong(auction.timestampFinish);
+					out.writeUTF(auctionSnapshot.product);
+					out.writeInt(auctionSnapshot.price);
+					out.writeInt(auctionSnapshot.reduction);
+					out.writeInt(auctionSnapshot.quantity);
+					out.writeLong(auctionSnapshot.timestamp);
 				} else {
 					break;
 				}
